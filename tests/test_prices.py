@@ -76,7 +76,10 @@ def test_zone_timezones_are_valid_and_labels_unique() -> None:
     ("key", "tz"),
     [
         ("dk1", "Europe/Copenhagen"),
-        ("fi", "Europe/Helsinki"),  # elpriser.org serves Finland in Helsinki days (ENTSO-E ground truth, 2026-11-03)
+        (
+            "fi",
+            "Europe/Helsinki",
+        ),  # elpriser.org serves Finland in Helsinki days (ENTSO-E ground truth, 2026-11-03)
         ("nl", "Europe/Copenhagen"),
         ("de", "Europe/Berlin"),
         ("pt", "Europe/Lisbon"),
