@@ -1,0 +1,220 @@
+{
+  "zone": "gb",
+  "generated": "2026-11-03",
+  "trainedThrough": null,
+  "unit": "GBP/MWh",
+  "days": [
+    {
+      "date": "2026-11-02",
+      "type": "actual",
+      "prices": [
+        {
+          "hour": 0,
+          "eur_mwh": 191.1
+        },
+        {
+          "hour": 1,
+          "eur_mwh": 187.27
+        },
+        {
+          "hour": 2,
+          "eur_mwh": 184.91
+        },
+        {
+          "hour": 3,
+          "eur_mwh": 181.15
+        },
+        {
+          "hour": 4,
+          "eur_mwh": 175.69
+        },
+        {
+          "hour": 5,
+          "eur_mwh": 185.35
+        },
+        {
+          "hour": 6,
+          "eur_mwh": 211.12
+        },
+        {
+          "hour": 7,
+          "eur_mwh": 222.57
+        },
+        {
+          "hour": 8,
+          "eur_mwh": 219.04
+        },
+        {
+          "hour": 9,
+          "eur_mwh": 188.94
+        },
+        {
+          "hour": 10,
+          "eur_mwh": 186.09
+        },
+        {
+          "hour": 11,
+          "eur_mwh": 184.85
+        },
+        {
+          "hour": 12,
+          "eur_mwh": 185.65
+        },
+        {
+          "hour": 13,
+          "eur_mwh": 198.18
+        },
+        {
+          "hour": 14,
+          "eur_mwh": 201.22
+        },
+        {
+          "hour": 15,
+          "eur_mwh": 240.81
+        },
+        {
+          "hour": 16,
+          "eur_mwh": 257.14
+        },
+        {
+          "hour": 17,
+          "eur_mwh": 263.61
+        },
+        {
+          "hour": 18,
+          "eur_mwh": 268
+        },
+        {
+          "hour": 19,
+          "eur_mwh": 243.16
+        },
+        {
+          "hour": 20,
+          "eur_mwh": 218.46
+        },
+        {
+          "hour": 21,
+          "eur_mwh": 202.06
+        },
+        {
+          "hour": 22,
+          "eur_mwh": 195.8
+        },
+        {
+          "hour": 23,
+          "eur_mwh": 182.85
+        }
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "type": "actual",
+      "prices": [
+        {
+          "hour": 0,
+          "eur_mwh": 177.05
+        },
+        {
+          "hour": 1,
+          "eur_mwh": 170.23
+        },
+        {
+          "hour": 2,
+          "eur_mwh": 167.03
+        },
+        {
+          "hour": 3,
+          "eur_mwh": null
+        },
+        {
+          "hour": 4,
+          "eur_mwh": null
+        },
+        {
+          "hour": 5,
+          "eur_mwh": null
+        },
+        {
+          "hour": 6,
+          "eur_mwh": null
+        },
+        {
+          "hour": 7,
+          "eur_mwh": null
+        },
+        {
+          "hour": 8,
+          "eur_mwh": null
+        },
+        {
+          "hour": 9,
+          "eur_mwh": null
+        },
+        {
+          "hour": 10,
+          "eur_mwh": null
+        },
+        {
+          "hour": 11,
+          "eur_mwh": null
+        },
+        {
+          "hour": 12,
+          "eur_mwh": null
+        },
+        {
+          "hour": 13,
+          "eur_mwh": null
+        },
+        {
+          "hour": 14,
+          "eur_mwh": null
+        },
+        {
+          "hour": 15,
+          "eur_mwh": null
+        },
+        {
+          "hour": 16,
+          "eur_mwh": null
+        },
+        {
+          "hour": 17,
+          "eur_mwh": null
+        },
+        {
+          "hour": 18,
+          "eur_mwh": null
+        },
+        {
+          "hour": 19,
+          "eur_mwh": null
+        },
+        {
+          "hour": 20,
+          "eur_mwh": null
+        },
+        {
+          "hour": 21,
+          "eur_mwh": null
+        },
+        {
+          "hour": 22,
+          "eur_mwh": null
+        },
+        {
+          "hour": 23,
+          "eur_mwh": null
+        }
+      ]
+    }
+  ],
+  "zoneInfo": {
+    "name": "GB Great Britain",
+    "country": "GB",
+    "currency": "GBP",
+    "rate": 1,
+    "rateDate": "2026-11-02",
+    "rateSource": "ECB"
+  }
+}

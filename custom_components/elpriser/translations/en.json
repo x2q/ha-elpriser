@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Elpriser",
+        "description": "Electricity prices from elpriser.org - a free service, no account or key needed. Pick the price zone you want. Denmark has two zones and asks for the price type next; every other zone shows the wholesale (day-ahead) price without VAT, taxes and grid fees.",
+        "data": {
+          "zone": "Price zone"
+        },
+        "data_description": {
+          "zone": "One entry per zone. You can add more zones later."
+        }
+      },
+      "denmark": {
+        "title": "Denmark {area}",
+        "description": "Choose which price to follow. The default is everything except your own grid company's tariff. Choose a grid company (and a price type that includes the grid tariff) to get the price you actually pay.",
+        "data": {
+          "mode": "Price type",
+          "gln": "Grid company (optional)"
+        },
+        "data_description": {
+          "mode": "Prices are in DKK/kWh. The net_* types add your grid company's tariff and need a grid company.",
+          "gln": "Pick your grid company, or type its 13-digit GLN number if it is not listed."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach elpriser.org. Check the internet connection and try again.",
+      "no_data": "elpriser.org has no prices for this choice (yet).",
+      "unknown": "Unexpected answer from elpriser.org.",
+      "gln_invalid": "A GLN is 13 digits.",
+      "gln_required": "This price type needs a grid company.",
+      "gln_needs_net_mode": "A grid company only applies to the net_* price types."
+    },
+    "abort": {
+      "already_configured": "This zone, price type and grid company is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Elpriser options",
+        "description": "These only change what is shown; they do not cause extra requests.",
+        "data": {
+          "cheap_hours": "Number of cheap hours",
+          "show_forecast": "Show forecast"
+        },
+        "data_description": {
+          "cheap_hours": "The 'Cheap hour now' sensor is on during this many cheapest hours of the day.",
+          "show_forecast": "Add the 'forecast' attribute (up to 10 days ahead; elpriser.org's own model, not official) to the 'Price now' sensor."
+        }
+      }
+    }
+  },
+  "selector": {
+    "dk_mode": {
+      "options": {
+        "inkl_alt": "All-in without grid tariff (spot + Energinet tariffs + electricity tax + VAT)",
+        "spot_inkl": "Spot price incl. VAT",
+        "spot_ex": "Spot price excl. VAT",
+        "inkl_alt_minus": "All-in without grid tariff and without electricity tax",
+        "inkl_alt_elvarme": "All-in without grid tariff, reduced tax (electric heating)",
+        "net_inkl_alt": "Full price incl. grid tariff (needs a grid company)",
+        "net_inkl_alt_elvarme": "Full price incl. grid tariff, reduced tax (electric heating)",
+        "net_inkl_tarif": "Incl. grid tariff, without electricity tax"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "price_now": {
+        "name": "Price now"
+      },
+      "price_next_hour": {
+        "name": "Price next hour"
+      },
+      "price_today_min": {
+        "name": "Price today min"
+      },
+      "price_today_max": {
+        "name": "Price today max"
+      },
+      "price_today_avg": {
+        "name": "Price today avg"
+      },
+      "cheapest_hour_start": {
+        "name": "Cheapest hour start"
+      },
+      "price_level": {
+        "name": "Price level",
+        "state": {
+          "cheap": "Cheap",
+          "normal": "Normal",
+          "expensive": "Expensive"
+        }
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour_now": {
+        "name": "Cheap hour now"
+      }
+    }
+  }
+}

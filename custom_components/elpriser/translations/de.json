@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Elpriser",
+        "description": "Strompreise von elpriser.org - ein kostenloser Dienst, ohne Konto oder Schlüssel. Wähle die Preiszone, die du verfolgen möchtest. Dänemark hat zwei Zonen und fragt danach nach der Preisart; alle anderen Zonen zeigen den Börsenpreis (Day-Ahead) ohne Mehrwertsteuer, Abgaben und Netzentgelte.",
+        "data": {
+          "zone": "Preiszone"
+        },
+        "data_description": {
+          "zone": "Ein Eintrag pro Zone. Weitere Zonen kannst du später hinzufügen."
+        }
+      },
+      "denmark": {
+        "title": "Dänemark {area}",
+        "description": "Wähle, welchen Preis du verfolgen möchtest. Standard ist alles außer dem Tarif deines Netzbetreibers. Wähle einen Netzbetreiber (und eine Preisart mit Netztarif), um den Preis zu erhalten, den du tatsächlich zahlst.",
+        "data": {
+          "mode": "Preisart",
+          "gln": "Netzbetreiber (optional)"
+        },
+        "data_description": {
+          "mode": "Preise in DKK/kWh. Die Arten net_* addieren den Tarif deines Netzbetreibers und benötigen einen Netzbetreiber.",
+          "gln": "Wähle deinen Netzbetreiber oder gib seine 13-stellige GLN-Nummer ein, falls er nicht in der Liste steht."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "elpriser.org ist nicht erreichbar. Prüfe die Internetverbindung und versuche es erneut.",
+      "no_data": "elpriser.org hat (noch) keine Preise für diese Auswahl.",
+      "unknown": "Unerwartete Antwort von elpriser.org.",
+      "gln_invalid": "Eine GLN hat 13 Ziffern.",
+      "gln_required": "Diese Preisart benötigt einen Netzbetreiber.",
+      "gln_needs_net_mode": "Ein Netzbetreiber gilt nur für die Preisarten net_*."
+    },
+    "abort": {
+      "already_configured": "Diese Zone, Preisart und dieser Netzbetreiber sind bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Elpriser-Optionen",
+        "description": "Diese Optionen ändern nur die Anzeige und verursachen keine zusätzlichen Anfragen.",
+        "data": {
+          "cheap_hours": "Anzahl günstiger Stunden",
+          "show_forecast": "Prognose anzeigen"
+        },
+        "data_description": {
+          "cheap_hours": "Der Sensor 'Günstige Stunde jetzt' ist während so vieler der günstigsten Stunden des Tages an.",
+          "show_forecast": "Fügt dem Sensor 'Preis jetzt' das Attribut 'forecast' hinzu (bis zu 10 Tage voraus; das eigene Modell von elpriser.org, nicht offiziell)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "dk_mode": {
+      "options": {
+        "inkl_alt": "Alles inklusive ohne Netztarif (Spot + Tarife von Energinet + Stromsteuer + MwSt.)",
+        "spot_inkl": "Spotpreis inkl. MwSt.",
+        "spot_ex": "Spotpreis ohne MwSt.",
+        "inkl_alt_minus": "Alles inklusive ohne Netztarif und ohne Stromsteuer",
+        "inkl_alt_elvarme": "Alles inklusive ohne Netztarif, ermäßigte Steuer (Elektroheizung)",
+        "net_inkl_alt": "Voller Preis inkl. Netztarif (benötigt Netzbetreiber)",
+        "net_inkl_alt_elvarme": "Voller Preis inkl. Netztarif, ermäßigte Steuer (Elektroheizung)",
+        "net_inkl_tarif": "Inkl. Netztarif, ohne Stromsteuer"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "price_now": {
+        "name": "Preis jetzt"
+      },
+      "price_next_hour": {
+        "name": "Preis nächste Stunde"
+      },
+      "price_today_min": {
+        "name": "Tiefstpreis heute"
+      },
+      "price_today_max": {
+        "name": "Höchstpreis heute"
+      },
+      "price_today_avg": {
+        "name": "Durchschnittspreis heute"
+      },
+      "cheapest_hour_start": {
+        "name": "Beginn der günstigsten Stunde"
+      },
+      "price_level": {
+        "name": "Preisniveau",
+        "state": {
+          "cheap": "Günstig",
+          "normal": "Normal",
+          "expensive": "Teuer"
+        }
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour_now": {
+        "name": "Günstige Stunde jetzt"
+      }
+    }
+  }
+}

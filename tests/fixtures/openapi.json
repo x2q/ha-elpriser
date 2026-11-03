@@ -1,0 +1,1000 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "elpriser.org API",
+    "version": "1.0",
+    "summary": "Live Danish electricity prices, schedules, forecasts and Tibber-compatible JSON.",
+    "description": "Free, public API serving aktuelle elpriser (current electricity prices) for the Danish\nprice zones DK1 (Vestdanmark) and DK2 (Østdanmark). Data is sourced daily from Energi\nData Service (Energinet) and updated when Nord Pool publishes next-day prices.\n\n**No key, no rate limit, full CORS** (`Access-Control-Allow-Origin: *`). Responses are\nedge-cached at Cloudflare for 1–5 min so calling /api/now every minute from a Shelly\nor Home Assistant is free and fine.\n\n**Send a `User-Agent` header.** Cloudflare's bot protection answers `403` to the exact\ndefault of Python's `urllib` (`Python-urllib/3.x`). Any other value works — `curl`, `requests`,\nor your own, e.g. `my-heatpump/1.0`. In Python: `Request(url, headers={\"User-Agent\": \"my-app/1.0\"})`.\n\nDesigned to be consumed by:\n- Browser apps (CORS-friendly JSON, no preflight needed for simple GETs)\n- Home automation (Shelly Plus/Pro scripts, Home Assistant REST sensors)\n- LLM agents (Tibber-compatible `/api/shelly/tariff` matches the schema Tibber publishes)\n- Smart-home aggregators (machine-readable spec at `/api/openapi.json`)",
+    "contact": {
+      "url": "https://elpriser.org/api"
+    },
+    "license": {
+      "name": "Free for any use",
+      "url": "https://elpriser.org/"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://elpriser.org",
+      "description": "Production"
+    }
+  ],
+  "externalDocs": {
+    "description": "API documentation (Danish)",
+    "url": "https://elpriser.org/api"
+  },
+  "paths": {
+    "/api/now": {
+      "get": {
+        "operationId": "getCurrentPrice",
+        "summary": "Current electricity price + on/off for a schedule",
+        "description": "Returns the price for the current Danish-local hour and a boolean `on` indicating whether the chosen schedule strategy says the device should be ON right now.",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spot_ex",
+                "spot_inkl",
+                "inkl_alt",
+                "inkl_alt_elvarme",
+                "inkl_alt_minus",
+                "net_inkl_alt",
+                "net_inkl_alt_elvarme",
+                "net_inkl_tarif"
+              ],
+              "default": "inkl_alt"
+            },
+            "description": "Which price to return. `spot_ex` raw spot; `spot_inkl` spot incl. VAT; `inkl_alt` spot + system + transmission + electricity duty, incl. VAT; `inkl_alt_minus` the same without the duty; `net_inkl_tarif` adds the grid tariff but no duty; `net_inkl_alt` is the full consumer price. The two `_elvarme` variants substitute the reduced duty that applies above 4,000 kWh/year in electrically heated homes — 0.8 vs 72.0 øre/kWh in 2025. The `net_` modes require `gln`. An unknown mode is rejected rather than silently treated as spot incl. VAT."
+          },
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`."
+          },
+          {
+            "name": "strategy",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cheapest_n",
+                "cheapest_pct",
+                "avoid_expensive_n",
+                "avoid_expensive_pct",
+                "avoid_peak",
+                "night_cheap",
+                "smart"
+              ],
+              "default": "cheapest_n"
+            },
+            "description": "Schedule strategy. See /automation for descriptions."
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 23,
+              "default": 6
+            },
+            "description": "For strategies that take an hour count."
+          },
+          {
+            "name": "pct",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "For percentage-based strategies."
+          },
+          {
+            "name": "max_off",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            },
+            "description": "For `strategy=smart`: max consecutive OFF hours."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current hour status.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "on": true,
+                  "price": 1.23,
+                  "hour": 14,
+                  "area": "DK1",
+                  "mode": "inkl_alt",
+                  "strategy": "cheapest_n"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prices": {
+      "get": {
+        "operationId": "getDailyPrices",
+        "summary": "Hourly prices for one date, or for a date range",
+        "description": "Historical prices back to 2000-01-01. Pass `date` for a single day, or `start` and `end` together for a range — up to 1150 days in one response, so three years costs one request rather than a thousand. On a range, `days[].prices` is null for a day the market never priced. Historical dates are priced with the taxes and grid tariffs that were in force on the date, including the tariff's time-of-day bands and its summer/winter split — see `charges` to reprice under today's rates instead. For `net_` modes each day carries `grid_tariff`: \"hourly\", \"flat\" for a company publishing a single daily rate, or null if it published none, in which case that day's prices are null rather than silently missing the tariff.",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spot_ex",
+                "spot_inkl",
+                "inkl_alt",
+                "inkl_alt_elvarme",
+                "inkl_alt_minus",
+                "net_inkl_alt",
+                "net_inkl_alt_elvarme",
+                "net_inkl_tarif"
+              ],
+              "default": "inkl_alt"
+            },
+            "description": "Which price to return. `spot_ex` raw spot; `spot_inkl` spot incl. VAT; `inkl_alt` spot + system + transmission + electricity duty, incl. VAT; `inkl_alt_minus` the same without the duty; `net_inkl_tarif` adds the grid tariff but no duty; `net_inkl_alt` is the full consumer price. The two `_elvarme` variants substitute the reduced duty that applies above 4,000 kWh/year in electrically heated homes — 0.8 vs 72.0 øre/kWh in 2025. The `net_` modes require `gln`. An unknown mode is rejected rather than silently treated as spot incl. VAT."
+          },
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`."
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD. Defaults to today (DK local). Any date from 2000-01-01 onwards."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD. With `end`, returns every day in the range instead of one. Max 1150 days."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD, inclusive. Must be given together with `start`."
+          },
+          {
+            "name": "charges",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "historical",
+                "current"
+              ],
+              "default": "historical"
+            },
+            "description": "Which tax and tariff rates to apply to a historical date. `historical` (default) uses the rates actually in force on that date. `current` reprices the same spot curve under today's rates, answering \"what would this cost now\" — useful for comparing years, but not what the hour cost."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "24 hourly prices for the date, or a day-by-day list for a range.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "area": "DK1",
+                  "mode": "inkl_alt",
+                  "date": "2026-05-15",
+                  "unit": "DKK/kWh",
+                  "prices": [
+                    {
+                      "hour": 0,
+                      "price": 0.84
+                    },
+                    {
+                      "hour": 1,
+                      "price": 0.79
+                    }
+                  ],
+                  "current_hour": 14,
+                  "current_price": 1.23
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed date, `start` without `end`, range over 1150 days, or a date before 2000-01-01."
+          },
+          "503": {
+            "description": "Upstream (Energi Data Service) rate-limited or unavailable for days not yet in the archive. Carries Retry-After."
+          }
+        }
+      }
+    },
+    "/api/flex/report": {
+      "post": {
+        "operationId": "reportFlex",
+        "summary": "Report controllable load from an opted-in device",
+        "description": "Called by the Shelly script and Home Assistant snippet on /automation when sharing is switched on. Records relay state, what elpriser.org commanded, and measured power, so the aggregate of load that can be switched off (down) or on (up) can be derived. The id is random and generated on the device; no name, address, MAC, serial or IP address is stored. One reading per device per 15-minute slot is kept, for 90 days.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "platform",
+                  "category",
+                  "area",
+                  "on"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{16,64}$",
+                    "description": "Random, generated on the device."
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "shelly",
+                      "homeassistant",
+                      "other"
+                    ]
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "ev_charger",
+                      "water_heater",
+                      "heat_pump",
+                      "battery",
+                      "pool_pump",
+                      "water_pump",
+                      "fridge",
+                      "freezer",
+                      "other"
+                    ],
+                    "description": "Appliance type. drain_pump, medical, cycle_appliance and it_equipment are refused with 422: they must not be switched by price."
+                  },
+                  "area": {
+                    "type": "string",
+                    "enum": [
+                      "DK1",
+                      "DK2"
+                    ]
+                  },
+                  "on": {
+                    "type": "boolean",
+                    "description": "Relay actually on."
+                  },
+                  "commanded_on": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "What elpriser.org told the device."
+                  },
+                  "power_w": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "description": "Measured draw; null when not metered."
+                  },
+                  "measured": {
+                    "type": "boolean"
+                  },
+                  "rated_w": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "description": "Declared rating, used when the relay does not meter (e.g. a contactor)."
+                  },
+                  "phases": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "enum": [
+                      1,
+                      3,
+                      null
+                    ]
+                  },
+                  "max_off_min": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Longest the device may be held off."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded."
+          },
+          "400": {
+            "description": "A field is missing or out of range; the message names which."
+          },
+          "413": {
+            "description": "Body over 2 KB."
+          },
+          "422": {
+            "description": "The appliance type must not be regulated by price; the message says why."
+          }
+        }
+      }
+    },
+    "/api/flex/forget": {
+      "post": {
+        "operationId": "forgetFlex",
+        "summary": "Delete everything stored about a device",
+        "description": "Removes the device and all its readings. The id is the proof of ownership; it exists only on the device (Shelly: KVS key elpriser_flex_id).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{16,64}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "400": {
+            "description": "Invalid id."
+          }
+        }
+      }
+    },
+    "/api/schedule": {
+      "get": {
+        "operationId": "getSchedule",
+        "summary": "Full 24h on/off schedule for a strategy",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spot_ex",
+                "spot_inkl",
+                "inkl_alt",
+                "inkl_alt_elvarme",
+                "inkl_alt_minus",
+                "net_inkl_alt",
+                "net_inkl_alt_elvarme",
+                "net_inkl_tarif"
+              ],
+              "default": "inkl_alt"
+            },
+            "description": "Which price to return. `spot_ex` raw spot; `spot_inkl` spot incl. VAT; `inkl_alt` spot + system + transmission + electricity duty, incl. VAT; `inkl_alt_minus` the same without the duty; `net_inkl_tarif` adds the grid tariff but no duty; `net_inkl_alt` is the full consumer price. The two `_elvarme` variants substitute the reduced duty that applies above 4,000 kWh/year in electrically heated homes — 0.8 vs 72.0 øre/kWh in 2025. The `net_` modes require `gln`. An unknown mode is rejected rather than silently treated as spot incl. VAT."
+          },
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`."
+          },
+          {
+            "name": "strategy",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cheapest_n",
+                "cheapest_pct",
+                "avoid_expensive_n",
+                "avoid_expensive_pct",
+                "avoid_peak",
+                "night_cheap",
+                "smart"
+              ],
+              "default": "cheapest_n"
+            },
+            "description": "Schedule strategy. See /automation for descriptions."
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 23,
+              "default": 6
+            },
+            "description": "For strategies that take an hour count."
+          },
+          {
+            "name": "pct",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "For percentage-based strategies."
+          },
+          {
+            "name": "max_off",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            },
+            "description": "For `strategy=smart`: max consecutive OFF hours."
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD. Defaults to today (DK local). Any date from 2000-01-01 onwards."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hour-by-hour schedule.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "area": "DK1",
+                  "mode": "inkl_alt",
+                  "strategy": "cheapest_n",
+                  "param": 6,
+                  "date": "2026-05-15",
+                  "on_now": true,
+                  "schedule": [
+                    {
+                      "hour": 0,
+                      "price": 0.84,
+                      "on": true
+                    },
+                    {
+                      "hour": 1,
+                      "price": 0.79,
+                      "on": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/forecast": {
+      "get": {
+        "operationId": "getForecast",
+        "summary": "10-day electricity price forecast",
+        "description": "Today and the next nine days, hour by hour. Days with a published day-ahead price are `type: \"actual\"`; the rest\nare `type: \"forecast\"` from a LightGBM quantile model trained daily on lead-correct weather forecasts, price lags\nand neighbouring-zone weather and capacity (`source: \"model\"`), or, when no fresh model run exists, a\nweekday-average fallback (`source: \"heuristic\"`).\n\n**`min` / `max`.** On `source: \"model\"` days they are the model's P10 and P90, widened until they cover 80 % of\noutcomes in backtests (measured 80.3–80.5 %), so about one hour in five falls outside them. On `source:\n\"heuristic\"` days they are the lowest and highest price seen for that weekday and hour over the last four\nweeks — not quantiles. They are in the same unit and mode as `price`. Actual days carry neither.\n\n**How far to trust it.** Backtest, 486 days (2025-04-01 to 2026-07-30), mean absolute error of the model median on spot\nprice, DK1 / DK2, by forecast day `D+h` counted from the day the run is made (D+1 is already published in the\nafternoon): D+2: 149 / 165 DKK/MWh, D+3: 155 / 169 DKK/MWh, D+5: 179 / 192 DKK/MWh, D+7: 195 / 207 DKK/MWh, D+9: 197 / 211 DKK/MWh — 23–32 % of the mean price, against 35–38 % for a\nfour-week same-weekday average. Error grows with horizon but flattens after D+7, where weather stops adding information.\nRank is better than level: the model's own measure of the cheapest hours is in the model card.\n\n**Grid company.** The `net_` modes add the company's nettarif and require `gln`. The tariff is the one in force on\neach day's own date, so a forecast that crosses a tariff change (many companies raise their day and peak rates\nfrom 1 October to 31 March) switches at the right midnight. `days[].tariff` is `\"published\"`, or\n`\"last_known\"` when none is published for that date yet and the newest earlier one is used. A date before\nevery published tariff has `null` prices rather than a silent zero. The forecast is the untariffed sum plus the\ntariff × 1.25 — so it equals `/api/prices` on a published day.\n\n**What a price is made of.** The response also carries `charges` — `sys`, `trans` and `afg` (system tariff,\ntransmission tariff and electricity duty, DKK/kWh excl. VAT) and `vat` (0.25) — and, on the `net_` modes, `days[].grid_tariff`:\nthe nettarif for each hour, DKK/kWh excl. VAT. For the all-in modes the spot price is then\n`price / (1 + vat) - sys - trans - afg - grid_tariff[hour]`, the VAT is `price - price / (1 + vat)`, and the parts add up\nto `price`. `inkl_alt_minus` and `net_inkl_tarif` have no duty; `spot_inkl` is spot plus VAT only.\n\n**`model`** names the run behind the model days: `name`, `generated` (the run's date), `generatedAt` (UTC\ntimestamp) and `shapeBlend`. All forecast days come from the same run. It is `null` on a heuristic-only response.",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spot_ex",
+                "spot_inkl",
+                "inkl_alt",
+                "inkl_alt_elvarme",
+                "inkl_alt_minus",
+                "net_inkl_alt",
+                "net_inkl_alt_elvarme",
+                "net_inkl_tarif"
+              ],
+              "default": "inkl_alt"
+            },
+            "description": "Which price to return. `spot_ex` raw spot; `spot_inkl` spot incl. VAT; `inkl_alt` spot + system + transmission + electricity duty, incl. VAT; `inkl_alt_minus` the same without the duty; `net_inkl_tarif` adds the grid tariff but no duty; `net_inkl_alt` is the full consumer price. The two `_elvarme` variants substitute the reduced duty that applies above 4,000 kWh/year in electrically heated homes — 0.8 vs 72.0 øre/kWh in 2025. The `net_` modes require `gln`. An unknown mode is rejected rather than silently treated as spot incl. VAT."
+          },
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "10 days × 24 hours of prices.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "area": "DK1",
+                  "mode": "net_inkl_alt",
+                  "gln": "5790001089030",
+                  "generated": "2026-10-06",
+                  "model": {
+                    "name": "v3",
+                    "generated": "2026-10-06",
+                    "generatedAt": "2026-10-06T12:13:02Z",
+                    "shapeBlend": 0
+                  },
+                  "days": [
+                    {
+                      "date": "2026-10-06",
+                      "type": "actual",
+                      "weekday": 2,
+                      "tariff": "published",
+                      "prices": [
+                        {
+                          "hour": 0,
+                          "price": 1.76
+                        }
+                      ]
+                    },
+                    {
+                      "date": "2026-10-08",
+                      "type": "forecast",
+                      "weekday": 4,
+                      "source": "model",
+                      "tariff": "published",
+                      "prices": [
+                        {
+                          "hour": 0,
+                          "price": 1.52,
+                          "min": 1.18,
+                          "max": 2.04
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A `net_` mode without a valid 13-digit `gln`."
+          },
+          "404": {
+            "description": "No nettarif is published for that `gln`."
+          }
+        }
+      }
+    },
+    "/api/forecast/archive": {
+      "get": {
+        "operationId": "getForecastArchive",
+        "summary": "What a past forecast run said",
+        "description": "Every daily forecast run is kept for 400 days, so you can measure the error of the forecasts that were actually served,\nby how far ahead they looked: compare `days[].prices[]` of a run with the settled prices from `/api/prices`.\n\nWithout `issued` it lists the run dates available for the area. With `issued=YYYY-MM-DD` it returns that run.\nPrices are raw spot in DKK/MWh excl. VAT (`spot_dkk_mwh`, with `spot_min_dkk_mwh` / `spot_max_dkk_mwh` as P10 / P90),\nas the model wrote them — not converted to an all-in mode. The archive starts on 2026-10-06; earlier runs were not kept.",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "issued",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Run date, YYYY-MM-DD. Omit to list available dates."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run, or the list of run dates."
+          },
+          "404": {
+            "description": "No run archived for that date."
+          }
+        }
+      }
+    },
+    "/api/nordic": {
+      "get": {
+        "operationId": "getZonePrices",
+        "summary": "Hourly prices for a bidding zone outside Denmark's two",
+        "description": "EUR/MWh by the zone's own wall clock, hour 0-23, `days[].type` `actual` (settled day-ahead price) or `forecast`,\nwith the ECB reference rate to the local currency in `zoneInfo` (`rate`, `rateDate`, `rateSource`).\nSpot price only: excluding VAT, taxes and grid fees, not what a customer pays.\n\n**Nordic zones and the Netherlands** (`dk1`, `dk2`, `no1`-`no5`, `se1`-`se4`, `fi`, `nl`): ten days from yesterday, settled days as `actual` and\nthe rest a `forecast` from one open model (`trainedThrough` says how fresh its training data is).\n\n**EU zones** (settled days are `actual`; tomorrow is absent until it is published, about 13:00 CET; `trainedThrough` is null when the answer is settled prices alone, see the end of this text for the forecast):\n`de` Germany and Luxembourg (DE-LU), `fr` France, `pl` Poland (`zoneInfo.currency` PLN, so convert with `zoneInfo.rate`), `it-n` Italy, bidding zone North only,\n`at` Austria, `be` Belgium, `ch` Switzerland, `cz` Czechia, `hu` Hungary and `si` Slovenia. Source: Bundesnetzagentur | SMARD.de via Energy-Charts.info,\nlicensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).\n`es` Spain, `pt` Portugal, `sk` Slovakia, `gr` Greece, `ro` Romania, `bg` Bulgaria, `hr` Croatia, `rs` Serbia, `ee` Estonia, `lv` Latvia, `lt` Lithuania,\n`me` Montenegro, `mk` North Macedonia, `al` Albania and `xk` Kosovo. Source: ENTSO-E Transparency Platform (day-ahead prices, article 12.1.d).\n`ie` Ireland (the all-island Single Electricity Market, Ireland and Northern Ireland). Source: SEMOpx, the day-ahead auction results (its hourly\nprices are the means of the market's 30-minute prices).\nPrices of the non-euro countries are in EUR/MWh as published; `zoneInfo.currency` is EUR for all of these.\nThe data were changed by elpriser.org: the 15- or 30-minute prices are aggregated to hourly means by the zone's local clock.\n\n**Forecast days for 25 EU zones** (all of the above except `xk` and `gb`): after the last settled day come up to seven `forecast` days, the first one the day after\nthe last settled day, with no hole. It is elpriser.org's own statistical model (a mean of a rolling linear model and a gradient-boosted tree model, using weather forecasts\nand market data as inputs): NOT an official forecast. A day has `horizon` (days after the last settled day + 1, 2 to 7), `eur_mwh` as the central estimate and\n`min_eur_mwh` / `max_eur_mwh` as P10 / P90. The settled price always replaces the forecast for the same day. A horizon is published for a zone only if its error (mean absolute error)\nwas at least 5 % below that of a simple level-and-shape method out of sample; the others are left out. The answer then also carries `model`, `trainedThrough`, `forecastGenerated`\nand `accuracy` for the zone: `byHorizon[h]` with `mae` (EUR/MWh), `baseMae` (the simple method's), `gain` (1 - mae / baseMae, whole backtest), `gainRecent` (since 2026-09-01, when\nprices rose sharply), `rankGain` and `rankOk` (how much better the model picks the cheapest hours than the simple method, and whether that is at least 5 %), `coverage` (the share of hours\nthat fell inside min..max, measured out of sample: not a promised 80 %), `low` (true: low confidence) and `bias`/`baseBias` since 2026-09-01. `accuracy.showEur` is true for the zones where\na percentage misleads (`ee`, `lv`, `lt`): quote EUR/MWh. A run older than three days is ignored, so without a current forecast the answer is the settled prices alone.\n\n**Great Britain, `gb`: NOT a day-ahead price.** It is the Market Index Price (within-day): the volume-weighted price of the within-day wholesale trades\nof each half hour (Market Index Data of the Balancing Mechanism Reporting Service, EPEX SPOT UK and N2EX), as hourly means by the London clock, an hour only once\nboth of its half hours are priced. There is no tomorrow. The price is in GBP/MWh: the day price field is still named `eur_mwh` (every client reads that name)\nbut holds pounds here, `unit` is `GBP/MWh` and `zoneInfo.currency` is `GBP` with `rate` 1, so `eur_mwh` * `rate` / 10 is pence per kWh like every other zone's sub-unit.\nContains BMRS data © Elexon Limited copyright and database right (licence: https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/).\nNorthern Ireland is not in `gb`: it trades in the SEM (`ie`).",
+        "parameters": [
+          {
+            "name": "zone",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "dk1",
+                "dk2",
+                "no1",
+                "no2",
+                "no3",
+                "no4",
+                "no5",
+                "se1",
+                "se2",
+                "se3",
+                "se4",
+                "fi",
+                "nl",
+                "de",
+                "fr",
+                "pl",
+                "it-n",
+                "at",
+                "be",
+                "ch",
+                "cz",
+                "hu",
+                "si",
+                "es",
+                "pt",
+                "sk",
+                "gr",
+                "ro",
+                "bg",
+                "hr",
+                "rs",
+                "ee",
+                "lv",
+                "lt",
+                "me",
+                "mk",
+                "al",
+                "xk",
+                "gb",
+                "ie"
+              ],
+              "default": "dk1"
+            },
+            "description": "The bidding zone. Unknown values answer 400."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Days of hourly prices in EUR/MWh (GBP/MWh for `gb`) plus zoneInfo."
+          },
+          "400": {
+            "description": "Unknown zone."
+          },
+          "404": {
+            "description": "No data for that zone (yet)."
+          }
+        }
+      }
+    },
+    "/api/shelly/tariff": {
+      "get": {
+        "operationId": "getShellyTariff",
+        "summary": "Tibber-compatible JSON for Shelly/HA",
+        "description": "Returns today + tomorrow prices in the exact GraphQL response shape Tibber publishes, so any Tibber-aware integration works as a drop-in.",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spot_ex",
+                "spot_inkl",
+                "inkl_alt",
+                "inkl_alt_elvarme",
+                "inkl_alt_minus",
+                "net_inkl_alt",
+                "net_inkl_alt_elvarme",
+                "net_inkl_tarif"
+              ],
+              "default": "inkl_alt"
+            },
+            "description": "Which price to return. `spot_ex` raw spot; `spot_inkl` spot incl. VAT; `inkl_alt` spot + system + transmission + electricity duty, incl. VAT; `inkl_alt_minus` the same without the duty; `net_inkl_tarif` adds the grid tariff but no duty; `net_inkl_alt` is the full consumer price. The two `_elvarme` variants substitute the reduced duty that applies above 4,000 kWh/year in electrically heated homes — 0.8 vs 72.0 øre/kWh in 2025. The `net_` modes require `gln`. An unknown mode is rejected rather than silently treated as spot incl. VAT."
+          },
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tibber-compatible response."
+          }
+        }
+      }
+    },
+    "/api/raw/prices": {
+      "get": {
+        "operationId": "getRawPrices",
+        "summary": "Raw DayAheadPrices records (passthrough)",
+        "description": "CORS-proxied passthrough to Energi Data Service `DayAheadPrices`. Use when you want the un-processed records (TimeUTC, TimeDK, PriceArea, DayAheadPriceDKK, DayAheadPriceEUR).",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD inclusive."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "YYYY-MM-DD exclusive."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records array."
+          }
+        }
+      }
+    },
+    "/api/raw/encharges": {
+      "get": {
+        "operationId": "getRawEnCharges",
+        "summary": "Energinet system/transmission/elafgift charges",
+        "responses": {
+          "200": {
+            "description": "Records array."
+          }
+        }
+      }
+    },
+    "/api/raw/co2": {
+      "get": {
+        "operationId": "getRawCo2",
+        "summary": "CO₂ emission per kWh (g/kWh), hourly, today + ~1 day ahead (Energinet CO2EmisProg)",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DK1",
+                "DK2"
+              ],
+              "default": "DK1"
+            },
+            "description": "Danish price zone — DK1 (Vestdanmark) or DK2 (Østdanmark)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{area, unit, records: [{date, hour, co2}]}"
+          }
+        }
+      }
+    },
+    "/api/raw/tariff": {
+      "get": {
+        "operationId": "getRawNetTariff",
+        "summary": "Single net company's Nettarif C (24 hourly values)",
+        "parameters": [
+          {
+            "name": "gln",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Net company GLN (13 digits). Required when mode is `net_inkl_alt` or `net_inkl_tarif`.",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records array."
+          }
+        }
+      }
+    },
+    "/api/raw/tariffs": {
+      "get": {
+        "operationId": "getRawAllTariffs",
+        "summary": "All Danish net companies' Nettarif C (used by /tariffer page)",
+        "responses": {
+          "200": {
+            "description": "Records array — ~48 KB."
+          }
+        }
+      }
+    },
+    "/api/supplierlookup": {
+      "get": {
+        "operationId": "lookupSupplier",
+        "summary": "Lat/lng → DK address → net company",
+        "description": "Reverse-geocodes coordinates via OpenStreetMap (Nominatim) and looks up the netselskab via GreenPowerDenmark. Proxied here because GPD returns no CORS headers.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address + resolved net name.",
+            "content": {
+              "application/json": {
+                "example": {
+                  "address": "Hasle Ringvej 110B, 8200 Aarhus N",
+                  "name": "KONSTANT Net A/S"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "This document",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 spec."
+          }
+        }
+      }
+    }
+  }
+}

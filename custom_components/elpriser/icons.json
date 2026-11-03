@@ -1,0 +1,29 @@
+{
+  "entity": {
+    "sensor": {
+      "price_now": { "default": "mdi:cash-clock" },
+      "price_next_hour": { "default": "mdi:clock-fast" },
+      "price_today_min": { "default": "mdi:cash-minus" },
+      "price_today_max": { "default": "mdi:cash-plus" },
+      "price_today_avg": { "default": "mdi:cash-multiple" },
+      "cheapest_hour_start": { "default": "mdi:clock-check-outline" },
+      "price_level": {
+        "default": "mdi:gauge",
+        "state": {
+          "cheap": "mdi:gauge-empty",
+          "normal": "mdi:gauge",
+          "expensive": "mdi:gauge-full"
+        }
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour_now": {
+        "default": "mdi:flash-off",
+        "state": {
+          "on": "mdi:flash",
+          "off": "mdi:flash-off"
+        }
+      }
+    }
+  }
+}

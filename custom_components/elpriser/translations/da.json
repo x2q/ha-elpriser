@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Elpriser",
+        "description": "Elpriser fra elpriser.org - en gratis tjeneste uden konto eller nøgle. Vælg det prisområde, du vil følge. Danmark har to områder og spørger bagefter om pristype; alle andre områder viser børsprisen (day-ahead) uden moms, afgifter og nettariffer.",
+        "data": {
+          "zone": "Prisområde"
+        },
+        "data_description": {
+          "zone": "Én post pr. område. Du kan tilføje flere områder senere."
+        }
+      },
+      "denmark": {
+        "title": "Danmark {area}",
+        "description": "Vælg, hvilken pris du vil følge. Standard er alt undtagen dit netselskabs tarif. Vælg et netselskab (og en pristype med nettarif) for at få den pris, du faktisk betaler.",
+        "data": {
+          "mode": "Pristype",
+          "gln": "Netselskab (valgfrit)"
+        },
+        "data_description": {
+          "mode": "Priserne er i kr/kWh. Typerne net_* lægger dit netselskabs tarif til og kræver et netselskab.",
+          "gln": "Vælg dit netselskab, eller skriv GLN-nummeret (13 cifre), hvis det ikke står på listen."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke nå elpriser.org. Tjek internetforbindelsen, og prøv igen.",
+      "no_data": "elpriser.org har (endnu) ingen priser til dette valg.",
+      "unknown": "Uventet svar fra elpriser.org.",
+      "gln_invalid": "Et GLN-nummer er 13 cifre.",
+      "gln_required": "Denne pristype kræver et netselskab.",
+      "gln_needs_net_mode": "Et netselskab gælder kun for pristyperne net_*."
+    },
+    "abort": {
+      "already_configured": "Dette område, denne pristype og dette netselskab er allerede sat op."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Indstillinger for Elpriser",
+        "description": "Indstillingerne ændrer kun, hvad der vises, og giver ikke ekstra forespørgsler.",
+        "data": {
+          "cheap_hours": "Antal billige timer",
+          "show_forecast": "Vis prognose"
+        },
+        "data_description": {
+          "cheap_hours": "Sensoren 'Billig time nu' er tændt i så mange af døgnets billigste timer.",
+          "show_forecast": "Tilføj attributten 'forecast' (op til 10 døgn frem; elpriser.orgs egen model, ikke officiel) til sensoren 'Pris nu'."
+        }
+      }
+    }
+  },
+  "selector": {
+    "dk_mode": {
+      "options": {
+        "inkl_alt": "Alt inkl. uden nettarif (spot + Energinets tariffer + elafgift + moms)",
+        "spot_inkl": "Spotpris inkl. moms",
+        "spot_ex": "Spotpris ekskl. moms",
+        "inkl_alt_minus": "Alt inkl. uden nettarif og uden elafgift",
+        "inkl_alt_elvarme": "Alt inkl. uden nettarif, nedsat elafgift (elvarme)",
+        "net_inkl_alt": "Fuld pris inkl. nettarif (kræver netselskab)",
+        "net_inkl_alt_elvarme": "Fuld pris inkl. nettarif, nedsat elafgift (elvarme)",
+        "net_inkl_tarif": "Inkl. nettarif, uden elafgift"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "price_now": {
+        "name": "Pris nu"
+      },
+      "price_next_hour": {
+        "name": "Pris næste time"
+      },
+      "price_today_min": {
+        "name": "Laveste pris i dag"
+      },
+      "price_today_max": {
+        "name": "Højeste pris i dag"
+      },
+      "price_today_avg": {
+        "name": "Gennemsnitspris i dag"
+      },
+      "cheapest_hour_start": {
+        "name": "Billigste time starter"
+      },
+      "price_level": {
+        "name": "Prisniveau",
+        "state": {
+          "cheap": "Billig",
+          "normal": "Normal",
+          "expensive": "Dyr"
+        }
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour_now": {
+        "name": "Billig time nu"
+      }
+    }
+  }
+}

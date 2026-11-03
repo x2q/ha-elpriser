@@ -1,0 +1,12 @@
+{
+  "domain": "elpriser",
+  "name": "Elpriser",
+  "codeowners": ["@x2q"],
+  "config_flow": true,
+  "documentation": "https://github.com/x2q/ha-elpriser",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/x2q/ha-elpriser/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
