@@ -76,7 +76,7 @@ def test_zone_timezones_are_valid_and_labels_unique() -> None:
     ("key", "tz"),
     [
         ("dk1", "Europe/Copenhagen"),
-        ("fi", "Europe/Copenhagen"),  # the Nordic feed floors to Copenhagen hours, Finland included
+        ("fi", "Europe/Helsinki"),  # elpriser.org serves Finland in Helsinki days (ENTSO-E ground truth, 2026-11-03)
         ("nl", "Europe/Copenhagen"),
         ("de", "Europe/Berlin"),
         ("pt", "Europe/Lisbon"),
@@ -480,3 +480,22 @@ def test_slot_count_and_ordering() -> None:
     assert all(
         b.start == a.end for a, b in zip(data.slots, data.slots[1:], strict=False)
     )  # no holes in the recorded feed
+
+
+def test_finland_is_on_helsinki_time() -> None:
+    """ENTSO-E (and Energy-Charts): the 2026-11-03 market day starts at 2026-11-02T23:00Z = 01:00 Helsinki, so the Finnish
+    day 2026-11-03 has that first market hour (5.77) at hour 1 and its hour 0 is 22:00Z, the hour before."""
+    assert ZONES["fi"].tz == "Europe/Helsinki"
+    prices = [{"hour": h, "eur_mwh": 5.77 if h == 1 else float(h)} for h in range(24)]
+    payload = {
+        "zone": "fi",
+        "unit": "EUR/MWh",
+        "zoneInfo": {"currency": "EUR", "rate": 1},
+        "days": [{"date": "2026-11-03", "type": "actual", "prices": prices}],
+    }
+    data = parse_nordic(payload, "fi", ZONES["fi"].tz)
+    starts = [s.start for s in data.slots]
+    assert starts[0] == utc(2026, 11, 2, 22)
+    assert starts[1] == utc(2026, 11, 2, 23)
+    assert data.slots[1].value == pytest.approx(0.00577)
+    assert starts[23] == utc(2026, 11, 3, 21)

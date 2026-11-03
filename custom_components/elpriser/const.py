@@ -122,9 +122,12 @@ def grid_company_name(gln: str | None) -> str | None:
 # compares this table with the live /api/openapi.json zone enum.
 #
 # tz is the wall clock the API's "hour" field (0-23) is expressed in:
-#  * the 13 Nordic feed zones (dk, no, se, fi, nl) are all Europe/Copenhagen -
-#    that includes Finland: the feed floors every ENTSO-E slot to the
-#    Copenhagen hour, so fi's "hour 0" is 00:00 CET, not 00:00 Helsinki;
+#  * the Nordic feed zones (dk, no, se, nl) are Europe/Copenhagen; Finland is
+#    Europe/Helsinki: elpriser.org cuts fi into Helsinki days, so fi's "hour 0"
+#    is 00:00 Helsinki = 22:00 UTC in winter. (Until that change the feed floored
+#    fi to the Copenhagen hour, which integration 0.1.1 and older assume: they
+#    are one hour off for fi once the API has changed, 0.1.2 is one hour off
+#    against the old API - release together);
 #  * every other zone is its own country's wall clock (Lisbon, Athens, ...).
 # DST: a 25-hour day carries one value for the doubled local hour 2 (the mean
 # of both), a 23-hour day has no hour 2 (see prices.expand_day).
@@ -175,7 +178,7 @@ ZONES: Final[dict[str, Zone]] = dict(
         _z("se2", "Sweden - SE2 Sundsvall", _CPH, GROUP_NORDIC),
         _z("se3", "Sweden - SE3 Stockholm", _CPH, GROUP_NORDIC),
         _z("se4", "Sweden - SE4 Malmö", _CPH, GROUP_NORDIC),
-        _z("fi", "Finland", _CPH, GROUP_NORDIC),
+        _z("fi", "Finland", "Europe/Helsinki", GROUP_NORDIC),
         _z("nl", "Netherlands", _CPH, GROUP_NORDIC),
         _z("de", "Germany and Luxembourg (DE-LU)", "Europe/Berlin", GROUP_EU, source="energy_charts"),
         _z("fr", "France", "Europe/Paris", GROUP_EU, source="energy_charts"),
