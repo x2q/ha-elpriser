@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import json
+from pathlib import Path
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
@@ -18,6 +20,8 @@ from custom_components.elpriser.const import CONF_CHEAP_HOURS, CONF_SHOW_FORECAS
 
 from .conftest import load
 from .helpers import make_entry, mock_denmark, mock_zone, nordic_url
+
+MANIFEST = Path(__file__).parents[1] / "custom_components" / "elpriser" / "manifest.json"
 
 UTC = UTC
 NOW_DE = "2026-11-03T09:20:00+00:00"  # 10:20 in Berlin, hour 10
@@ -60,7 +64,7 @@ async def test_germany_entities_and_states(
     # one request for the whole device, with the courteous User-Agent
     assert aioclient_mock.call_count == 1
     headers = aioclient_mock.mock_calls[0][3]
-    assert headers["User-Agent"] == "HomeAssistant-elpriser/0.1.0"
+    assert headers["User-Agent"] == f"HomeAssistant-elpriser/{json.loads(MANIFEST.read_text())['version']}"
 
 
 async def test_price_now_attributes_follow_the_nordpool_shape(
