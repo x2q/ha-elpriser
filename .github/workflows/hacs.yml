@@ -15,6 +15,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # Until the repository is accepted in the HACS default list and the
-          # brand images are in place, the brands check is expected to fail.
-          ignore: brands
