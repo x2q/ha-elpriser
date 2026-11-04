@@ -22,6 +22,8 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from .const import time_zone
+
 UTC = UTC
 HOUR = timedelta(hours=1)
 DECIMALS = 5
@@ -74,7 +76,7 @@ class PriceData:
 
     @property
     def zoneinfo(self) -> ZoneInfo:
-        return ZoneInfo(self.tz)
+        return time_zone(self.tz)
 
     @property
     def last_end(self) -> datetime | None:
@@ -220,7 +222,7 @@ def parse_nordic(payload: Any, zone: str, tzname: str) -> PriceData:
     source_unit = unit if isinstance(unit, str) else "EUR/MWh"
     slots = _parse_days(
         payload,
-        ZoneInfo(tzname),
+        time_zone(tzname),
         price_key="eur_mwh",
         min_key="min_eur_mwh",
         max_key="max_eur_mwh",
@@ -248,7 +250,7 @@ def parse_forecast(payload: Any, zone: str, tzname: str) -> PriceData:
         raise PriceDataError("response is not an object")
     slots = _parse_days(
         payload,
-        ZoneInfo(tzname),
+        time_zone(tzname),
         price_key="price",
         min_key="min",
         max_key="max",

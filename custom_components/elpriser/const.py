@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Final
+from zoneinfo import ZoneInfo
 
 DOMAIN: Final = "elpriser"
 
@@ -218,3 +219,15 @@ ZONES: Final[dict[str, Zone]] = dict(
 )
 
 assert len(ZONES) == 40  # noqa: S101 - cheap guard against a botched edit
+
+# Every time zone the integration needs, built once when this module is imported
+# (Home Assistant imports it in the executor). ZoneInfo(...) reads the tz database
+# from disk on first use, so it must never be constructed on the event loop.
+TIME_ZONES: Final[dict[str, ZoneInfo]] = {
+    name: ZoneInfo(name) for name in sorted({PUBLISH_TIME_TZ, *(zone.tz for zone in ZONES.values())})
+}
+
+
+def time_zone(name: str) -> ZoneInfo:
+    """The prebuilt ZoneInfo for one of the zones' time zones (KeyError for any other name)."""
+    return TIME_ZONES[name]

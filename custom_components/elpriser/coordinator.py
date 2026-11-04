@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -32,6 +31,7 @@ from .const import (
     PUBLISH_TIME_TZ,
     REFRESH_INTERVAL,
     Zone,
+    time_zone,
 )
 from .prices import PriceData, PriceDataError, has_day, local_date
 
@@ -63,7 +63,7 @@ def next_interval(
             backoff = max(backoff, timedelta(seconds=retry_after))
         return backoff
     if data is not None and not zone.latest_known:
-        clock = now.astimezone(ZoneInfo(PUBLISH_TIME_TZ))
+        clock = now.astimezone(time_zone(PUBLISH_TIME_TZ))
         in_window = CATCH_UP_START_HOUR <= clock.hour < CATCH_UP_END_HOUR
         tomorrow = local_date(now, data.zoneinfo) + timedelta(days=1)
         if in_window and not has_day(data, tomorrow):
@@ -73,7 +73,7 @@ def next_interval(
 
 def next_publication(now: datetime, jitter_seconds: float) -> datetime:
     """The next 13:05 Copenhagen time after `now` (UTC-aware) plus jitter."""
-    tz = ZoneInfo(PUBLISH_TIME_TZ)
+    tz = time_zone(PUBLISH_TIME_TZ)
     local = now.astimezone(tz)
     target = local.replace(hour=PUBLISH_HOUR, minute=PUBLISH_MINUTE, second=0, microsecond=0)
     if target <= local:
